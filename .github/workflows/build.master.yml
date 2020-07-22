@@ -1,0 +1,35 @@
+name: Build gitlab-bot-runner
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      # '*' matches any character except '/'
+      - 'image/*'
+      - '.github/workflows/*'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Docker login
+        env:
+          DOCKER_HUB_USERNAME: ${{ secrets. DOCKER_HUB_USERNAME }} 
+          DOCKER_HUB_PASSWORD: ${{ secrets. DOCKER_HUB_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+        run: |
+          echo $DOCKER_HUB_PASSWORD | docker login --username $DOCKER_HUB_USERNAME --password-stdin
+          echo $GITHUB_TOKEN | docker login docker.pkg.github.com --username $GITHUB_ACTOR --password-stdin
+      - name: Build & Push Image
+        run: |
+          cd image
+          IMAGE_NAME=ringcentral/vnc-chrome-mvn
+          VERSION="$(awk -F '[:]'  '/FROM/ {print $2}' Dockerfile)"
+          docker build --tag ${IMAGE_NAME} --file Dockerfile .
+          docker tag "${IMAGE_NAME}" "${IMAGE_NAME}:${VERSION}"
+          docker tag "${IMAGE_NAME}" "${IMAGE_NAME}:latest"
+
+          docker push "${IMAGE_NAME}:${VERSION}"
+          docker push "${IMAGE_NAME}:latest"
